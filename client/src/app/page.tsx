@@ -3,33 +3,30 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import HighlightedText, { Entity } from "@/components/highlighted-text";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-
-interface Entity {
-  text: string;
-  label: string;
-  start: number;
-  end: number;
-}
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Home = () => {
   const [text, setText] = useState<string>("");
   const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [model, setModel] = useState<string>("d4data/biomedical-ner-all");
 
   const handleAnalyze = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/ner", {
+      const response = await fetch("http://localhost:8000/ner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, model }),
       });
 
       if (!response.ok) {
@@ -39,87 +36,56 @@ const Home = () => {
       const data = await response.json();
       setEntities(data.entities);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching NER results:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const renderHighlightedText = () => {
-    if (!entities.length) return text;
-
-    const sortedEntities = [...entities].sort((a, b) => a.start - b.start);
-    const highlightedText = [];
-    let currentIndex = 0;
-
-    sortedEntities.forEach((entity, index) => {
-      const { start, end, label } = entity;
-
-      if (start > currentIndex) {
-        highlightedText.push(
-          <span key={`text-${index}-${currentIndex}`}>
-            {text.slice(currentIndex, start)}
-          </span>
-        );
-      }
-
-      highlightedText.push(
-        <Popover key={`popover-${index}`}>
-          <PopoverTrigger asChild>
-            <span
-              key={`entity-${index}`}
-              className={cn("rounded text-blue-800 font-semibold", {
-                "bg-blue-300": label[0] == "B",
-                "bg-rose-300": label[0] == "I",
-              })}
-              title={label}
-            >
-              {text.slice(start, end)}
-            </span>
-          </PopoverTrigger>
-          <PopoverContent>
-            <span className="text-zinc-700">({label})</span>
-          </PopoverContent>
-        </Popover>
-      );
-
-      currentIndex = end;
-    });
-
-    if (currentIndex < text.length) {
-      highlightedText.push(
-        <span key={`text-end`}>{text.slice(currentIndex)}</span>
-      );
-    }
-
-    return highlightedText;
-  };
+  console.log("entities", entities);
 
   return (
-    <div className="container mx-auto p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">
-            PubMed NER Highlighter
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Enter text here..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={6}
-            className="mb-4"
-          />
-          <Button onClick={handleAnalyze} disabled={loading}>
+    <div className="container mt-40 mx-auto p-4">
+      <div className="flex flex-col justify-center">
+        <h1 className="text-2xl my-4 font-bold text-center">
+          PubMed Abstract NER
+        </h1>
+        <Textarea
+          placeholder="Enter text here..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={10}
+          className="mb-4"
+        />
+        <div className="flex mx-auto justify-center items-center w-fit gap-4">
+          <Button
+            onClick={handleAnalyze}
+            disabled={loading}
+            className="w-fit mx-auto"
+          >
             {loading ? "Analyzing..." : "Analyze"}
           </Button>
-        </CardContent>
-      </Card>
+          <Select onValueChange={(value) => setModel(value)} value={model}>
+            <SelectTrigger>
+              <SelectValue placeholder="Choose a model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Model</SelectLabel>
+                <SelectItem value="1">1</SelectItem>
+                <SelectItem value="gpt-3.5-turbo">Gpt 3.5 Turbo</SelectItem>
+                <SelectItem value="d4data/biomedical-ner-all">
+                  d4data/biomedical-ner-all
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-2">NER Results:</h2>
         <div className="p-4 border border-gray-300 rounded bg-gray-50 text-lg leading-relaxed">
-          {renderHighlightedText()}
+          <HighlightedText text={text} entities={entities} />
         </div>
       </div>
     </div>
